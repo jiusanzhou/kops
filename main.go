@@ -7,6 +7,10 @@ import (
 	"go.zoe.im/x/cli"
 
 	"go.zoe.im/kops/cmd"
+
+	// import all sub commands
+	_ "go.zoe.im/kops/cmd/mv"
+	_ "go.zoe.im/kops/cmd/mv/pv"
 )
 
 func main() {
