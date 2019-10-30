@@ -8,7 +8,7 @@ import (
 
 	"go.zoe.im/kops/cmd"
 
-	// import all sub commands
+	// import allcommands
 	_ "go.zoe.im/kops/cmd/mv"
 	_ "go.zoe.im/kops/cmd/mv/pv"
 )

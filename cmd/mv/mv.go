@@ -27,9 +27,11 @@ func init() {
 	m := mv.NewManager()
 
 	mvcmd = cli.New(
-		cli.Name("mv [subcommand]", "move"),
+		cli.Name("mv [command]", "move"),
 		cli.Short("Move resource from source to distination."),
 		cli.Description(`Move resource from source to distination.
+
+	* Just try it.
 
 `),
 		cli.Config(m.Config),

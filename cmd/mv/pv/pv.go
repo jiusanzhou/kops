@@ -16,10 +16,10 @@ func init() {
 	mvcmd.Register(
 		cli.New(
 			cli.Name("pv [pod]", "pv"),
-			cli.Short("Move persistent volume of a pod."),
+			cli.Short("Move local persistent volume of a pod."),
 			cli.Description(`Move persistent volume of a pod to another node.
 
-	* if pod is't provided, we will take all pods on this node to proccess;
+	* if pod is't provided, we will take all pods on current node to proccess;
 	* if distination node is't provided, we will use current node;
 
 Warning! If have any errors occur, we can't roll back. 
