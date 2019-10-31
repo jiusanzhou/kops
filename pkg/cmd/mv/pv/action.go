@@ -94,12 +94,17 @@ func (act *ActionConfig) waitpodready() error {
 	// TODO: we need to roll back all actions?
 
 	// actually pvc status is BOUND
-	pvcclient.
+	// pvcclient.
 
 	return nil
 }
 
 func (act *ActionConfig) restorepvc() error {
+
+	return nil
+}
+
+func (act *ActionConfig) createpv() error {
 
 	return nil
 }

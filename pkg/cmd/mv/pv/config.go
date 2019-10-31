@@ -9,11 +9,14 @@ type Config struct {
 	Password string `opts:"short=p,help=password for login node"`
 
 	Yes    bool   `opts:"short=y,help=no need to wait user's typo confirm"`
+
+	Namespace string `opts:"short=n,help=namepace to process"`
 }
 
 // NewConfig returns a new config
 func NewConfig() *Config {
 	return &Config{
 		// add default value
+		Namespace: "default",
 	}
 }

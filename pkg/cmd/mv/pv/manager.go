@@ -22,6 +22,8 @@ var (
 // Manager controll things
 type Manager struct {
 	Config *Config
+
+	hostname string
 }
 
 // NewManager create a new manager
@@ -34,7 +36,7 @@ func NewManager() *Manager {
 func (m *Manager) init() {
 
  	// default namespace, TODO:
-	namespace := ""
+	namespace := m.Config.Namespace
 
 	clientset = utils.GetKubeClient()
 	coreclient = clientset.CoreV1()
@@ -44,6 +46,12 @@ func (m *Manager) init() {
 	podclient  = coreclient.Pods(namespace)
 	pvclient   = coreclient.PersistentVolumes()
 	pvcclient  = coreclient.PersistentVolumeClaims(namespace)
+
+	var err error
+	m.hostname, err = utils.Hostname()
+	if err != nil {
+		panic("获取当前Hostname错误")
+	}
 }
 
 // Start process
@@ -61,10 +69,11 @@ func (m *Manager) Start(keys ...string) {
 
 	// if keys is empty, we are trying to list all pv(local) information
 	if len(keys) == 0 && m.Config.Source == "" && m.Config.Target == "" {
+		fmt.Println("[INFO] 列出所有PV")
 		// list all pv
 		pvs, err := listPV(IsLocalPV())
 		if err != nil {
-			fmt.Println("list all pv error:", err)
+			fmt.Println("[ERROR] 列出PV错误:", err)
 			return
 		}
 	
@@ -75,11 +84,34 @@ func (m *Manager) Start(keys ...string) {
 		return
 	}
 
-	// if target is empty, mv pods to current node
-	if m.Config.Target == "" {
+	// if source is empty and target is not empty
+	if m.Config.Target != "" && m.Config.Source == "" && len(keys) > 0 {
+
+		fmt.Println("[INFO] 移动当前节点上符合名称", keys, "的Pod，至本节点", m.Config.Target)
+		// list all pods
+		pods, err := listPods(PodNameLike(keys...), PodOnHost(m.hostname))
+		if err != nil {
+			fmt.Println("[ERROR] 列出Pod错误:", err)
+			return
+		}
 		
+		for _, pod := range pods {
+			// display more informations, just print
+			fmt.Println("[INFO] 将Pod", pod.Name, "移动至目标节点")
+
+			// create action job to exectud
+
+			// get pvc
+
+			// get pv
+
+			// get node informations
+		}
+
+		return
 	}
 
+	// if target is empty, mv pods to current node
 	// init the client set
 	// podlist, err := podclient.List(metav1.ListOptions{})
 	// if err != nil {
@@ -89,4 +121,6 @@ func (m *Manager) Start(keys ...string) {
 	// for _, i := range podlist.Items {
 	// 	fmt.Println(i.Name)
 	// }
+
+	fmt.Println("[ERROR] 参数不明确")
 }
