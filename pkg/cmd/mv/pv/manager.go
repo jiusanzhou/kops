@@ -48,9 +48,10 @@ func (m *Manager) init() {
 
 // Start process
 // 0. nothing PANIC or list all pv
-// 1. pods name, mv [pods] to current node
-// 2. distination, mv pods from current node to distination
+// 1. pods name, mv [pods] to current node [x]
+// 2. distination, mv pods from current node to distination [x]
 // 3. both pods name and distination, mv [pods] to distination
+// 4. backup data [x]
 //
 // First of all, we need to implement transport [pods] to current node
 func (m *Manager) Start(keys ...string) {
@@ -74,6 +75,10 @@ func (m *Manager) Start(keys ...string) {
 		return
 	}
 
+	// if target is empty, mv pods to current node
+	if m.Config.Target == "" {
+		
+	}
 
 	// init the client set
 	// podlist, err := podclient.List(metav1.ListOptions{})

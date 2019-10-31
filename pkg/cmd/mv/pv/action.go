@@ -16,6 +16,12 @@ type ActionConfig struct {
 	TargetNode            v1.Node
 
 	progress int // total 100
+
+	srcHost  string
+	distHost string
+
+	srcDataPath  string
+	distDataPath string
 }
 
 // Run start to process
@@ -29,24 +35,96 @@ func (act *ActionConfig) Run() error {
 	}
 
 	// 1. sync data. start the rsync to sync data from source node to distinate node.
-	
+	err = act.syncdata()
+	if err != nil {
+		return err
+	}
+
 	// 2. delete pvc.
 	//    **make sure data sync was completed, protect pod can't be deleted then, the
-	//    pvc will turn to terminaing status.
+	//    **pvc will turn to terminaing status.
+	err = act.deletepvc()
+	if err != nil {
+		return err
+	}
 
 	// 3. delete pod. pvc(pv) will be delete, if we need to keep data safe we need to
 	//    change the pv's policy to retain or recycle before delete the pod.
+	err = act.deletepod()
+	if err != nil {
+		return err
+	}
 
 	// 4. *sync data. sync data again, optional.*
+	err = act.syncdata()
+	if err != nil {
+		return err
+	}
 
 	// 5. rename(or delete) pv (and data).
+	err = act.renamepv()
+	if err != nil {
+		return err
+	}
 
 	// 5. use the original pv name to create a new pv on the new node with synced
 	//    data (with path).
+	err = act.createpv()
+	if err != nil {
+		return err
+	}
 
 	// 6. restore the pvc (actually reuse the name and pv refrence of pv).
+	err = act.restorepvc()
+	if err != nil {
+		return err
+	}
 
 	// 7. waiting for pod scheduled.
+	err = act.waitpodready()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (act *ActionConfig) waitpodready() error {
+	// timeout. 
+	// TODO: we need to roll back all actions?
+
+	// actually pvc status is BOUND
+	pvcclient.
+
+	return nil
+}
+
+func (act *ActionConfig) restorepvc() error {
+
+	return nil
+}
+
+func (act *ActionConfig) renamepv() error {
+
+	return nil
+}
+
+func (act *ActionConfig) deletepod() error {
+	// **make sure pvc status to terminating!important
+
+	return nil
+}
+
+func (act *ActionConfig) deletepvc() error {
+	// modify recycle of pv?
+	// **make sure data has been synced!important. rdiff?
+
+	return nil
+}
+
+func (act *ActionConfig) syncdata() error {
+	// start sync service to sync data
+	// **make sure pv not be deleted
 
 	return nil
 }

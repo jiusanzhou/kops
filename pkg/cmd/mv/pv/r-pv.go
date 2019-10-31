@@ -13,6 +13,18 @@ func IsLocalPV() PVFilter {
 	}
 }
 
+func NameLike(patterns ...string) PVFilter {
+	return func(pv v1.PersistentVolume) bool {
+		// ORs
+		for _, i := range patterns {
+			if i == "*" || i == pv.Name {
+				return true
+			}
+		}
+		return false
+	}
+}
+
 // listPV list all pvs
 func listPV(filters ...func(v1.PersistentVolume) bool) ([]v1.PersistentVolume, error) {
 	
