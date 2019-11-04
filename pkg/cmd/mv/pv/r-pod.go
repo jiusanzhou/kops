@@ -24,9 +24,20 @@ func PodOnHost(host string) PodFilter {
 	}
 }
 
+// with local pv?
+func WithPV() PodFilter {
+	return func(pod v1.Pod) bool {
+		for _, v := range pod.Spec.Volumes {
+			if v.PersistentVolumeClaim != nil {
+				return true
+			}
+		}
+		return false
+	}
+}
+
 // list all pods
 func listPods(filters ...PodFilter) ([]v1.Pod, error) {
-	// list all pods
 	r, err := podclient.List(metav1.ListOptions{})
 	if err != nil {
 		return nil, err

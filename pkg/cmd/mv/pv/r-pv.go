@@ -25,6 +25,11 @@ func PVNameLike(patterns ...string) PVFilter {
 	}
 }
 
+// get pv by name
+func getPV(name string) (*v1.PersistentVolume, error) {
+	return pvclient.Get(name, metav1.GetOptions{})
+}
+
 // listPV list all pvs
 func listPV(filters ...func(v1.PersistentVolume) bool) ([]v1.PersistentVolume, error) {
 	
