@@ -2,9 +2,9 @@ package utils
 
 import (
 	"bufio"
-	"path/filepath"
 	"fmt"
 	"os"
+	"path/filepath"
 )
 
 func Hostname() (string, error) {
@@ -23,6 +23,6 @@ func ParentPath(path string) string {
 }
 
 func Exits(path string) bool {
-	 _, err := os.Stat(path)
-	 return !os.IsNotExist(err)
+	_, err := os.Stat(path)
+	return !os.IsNotExist(err)
 }

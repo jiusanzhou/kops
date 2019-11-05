@@ -36,7 +36,7 @@ func NewManager() *Manager {
 
 func (m *Manager) init() {
 
- 	// default namespace, TODO:
+	// default namespace, TODO:
 	namespace := m.Config.Namespace
 
 	clientset = utils.GetKubeClient()
@@ -44,9 +44,9 @@ func (m *Manager) init() {
 
 	// create all clients
 	nodeclient = coreclient.Nodes()
-	podclient  = coreclient.Pods(namespace)
-	pvclient   = coreclient.PersistentVolumes()
-	pvcclient  = coreclient.PersistentVolumeClaims(namespace)
+	podclient = coreclient.Pods(namespace)
+	pvclient = coreclient.PersistentVolumes()
+	pvcclient = coreclient.PersistentVolumeClaims(namespace)
 
 	var err error
 	m.hostname, err = utils.Hostname()
@@ -65,7 +65,7 @@ func (m *Manager) init() {
 // First of all, we need to implement transport [pods] to current node
 func (m *Manager) Start(keys ...string) {
 
-	// init 
+	// init
 	m.init()
 
 	// if keys is empty, we are trying to list all pv(local) information
@@ -77,7 +77,7 @@ func (m *Manager) Start(keys ...string) {
 			fmt.Println("[ERROR] 列出PV错误:", err)
 			return
 		}
-	
+
 		for _, i := range pvs {
 			// display more informations, just print
 			fmt.Println(i.Name)
@@ -161,17 +161,17 @@ func (m *Manager) Start(keys ...string) {
 			// TODO: auto replace hostname with ip
 			for _, adr := range sources[0].Status.Addresses {
 				if adr.Type == "InternalIP" {
-					source =  adr.Address
+					source = adr.Address
 				}
 			}
 
 			action := ActionConfig{
-				Pod: pod,
-				PvcPairs: pvcps,
+				Pod:        pod,
+				PvcPairs:   pvcps,
 				SourceNode: sources[0],
 				TargetNode: *current,
-				srcHost: source,
-				m: m,
+				srcHost:    source,
+				m:          m,
 			}
 
 			if !m.Config.Yes {
@@ -192,7 +192,7 @@ func (m *Manager) Start(keys ...string) {
 			}
 			fmt.Println("[INFO]", pod.Name, "迁移成功")
 		}
-		
+
 		fmt.Println("\n[INFO] 全部任务执行结束")
 		return
 	}

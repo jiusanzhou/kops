@@ -32,7 +32,7 @@ func getPV(name string) (*v1.PersistentVolume, error) {
 
 // listPV list all pvs
 func listPV(filters ...func(v1.PersistentVolume) bool) ([]v1.PersistentVolume, error) {
-	
+
 	// list all pv
 	r, err := pvclient.List(metav1.ListOptions{})
 	if err != nil {

@@ -54,6 +54,6 @@ mainLoop:
 		}
 		items = append(items, i)
 	}
-	
+
 	return items, nil
 }
