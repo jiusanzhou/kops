@@ -127,6 +127,8 @@ github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77/go.mod h1:
 go.opencensus.io v0.21.0/go.mod h1:mSImk1erAIZhrmZN+AvHh14ztQfjbGwt4TtuofqLduU=
 go.zoe.im/x v0.0.8 h1:7lfurqd/I0zQx0zUSaiv2BrarOWqI4NawBW3+VFDFpY=
 go.zoe.im/x v0.0.8/go.mod h1:QWEXSQljHLnLHnwYExmxtMX7hd5aOvF7CTDrchjDt50=
+go.zoe.im/x v0.0.9 h1:PXumhfkW4NyQneBQAsSUjRvGUu80X3yPK2OqGJvaMbY=
+go.zoe.im/x v0.0.9/go.mod h1:QWEXSQljHLnLHnwYExmxtMX7hd5aOvF7CTDrchjDt50=
 golang.org/x/crypto v0.0.0-20181203042331-505ab145d0a9 h1:mKdxBk7AujPs8kU4m80U72y/zjbZ3UcXC7dClwKbUI0=
 golang.org/x/crypto v0.0.0-20181203042331-505ab145d0a9/go.mod h1:6SG95UA2DQfeDnfUPMdvaQW0Q7yPrPDi9nlGo2tz2b4=
 golang.org/x/crypto v0.0.0-20190211182817-74369b46fc67/go.mod h1:6SG95UA2DQfeDnfUPMdvaQW0Q7yPrPDi9nlGo2tz2b4=
