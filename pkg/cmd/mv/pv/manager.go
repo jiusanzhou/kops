@@ -111,7 +111,7 @@ func (m *Manager) Start(keys ...string) {
 			// create action job to exectud
 
 			// find the pvc of pod
-			var pvcps = []PVCPair{}
+			var pvcps = []*PVCPair{}
 			for _, v := range pod.Spec.Volumes {
 				if v.PersistentVolumeClaim == nil {
 					continue
@@ -132,7 +132,7 @@ func (m *Manager) Start(keys ...string) {
 					continue pod_loop
 				}
 
-				pvcps = append(pvcps, PVCPair{
+				pvcps = append(pvcps, &PVCPair{
 					pv:  *pv,
 					pvc: *pvc,
 				})

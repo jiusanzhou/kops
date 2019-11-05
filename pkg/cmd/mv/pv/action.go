@@ -30,7 +30,7 @@ type PVCPair struct {
 // ActionConfig presents how to transport a pv from a node to another
 type ActionConfig struct {
 	Pod        v1.Pod
-	PvcPairs   []PVCPair
+	PvcPairs   []*PVCPair
 	SourceNode v1.Node
 	TargetNode v1.Node
 
