@@ -21,6 +21,10 @@ var (
 	PVNameSuffix   = "-pvsynced"
 )
 
+func suffixPVName() string {
+	return fmt.Sprintf("%s-%d", PVNameSuffix, time.Now().Unix())
+}
+
 type PVCPair struct {
 	pv       v1.PersistentVolume
 	pvc      v1.PersistentVolumeClaim
@@ -171,7 +175,7 @@ func (act *ActionConfig) createpv(index, step int) error {
 	var npv = v1.PersistentVolume{
 		TypeMeta: opv.TypeMeta,
 		ObjectMeta: metav1.ObjectMeta{
-			Name:          opv.ObjectMeta.Name + PVNameSuffix,
+			Name:          opv.ObjectMeta.Name + suffixPVName(),
 			Namespace:     opv.ObjectMeta.Namespace,
 			Labels:        opv.ObjectMeta.Labels,
 			Annotations:   opv.ObjectMeta.Annotations,
@@ -230,6 +234,7 @@ func (act *ActionConfig) deletepod(index, step int) error {
 
 func (act *ActionConfig) waitingpvcdeleted(index int) {
 	fmt.Printf("等待")
+	// FIXME: use watch
 	for {
 		fmt.Printf(".")
 		time.Sleep(time.Second)
@@ -252,6 +257,20 @@ func (act *ActionConfig) deletepvc(index, step int) error {
 		fmt.Printf("[ERROR] [%d] 调整PV回收策略失败: %s\n", step, err)
 		return err
 	}
+
+	// wait for recycle pf pv has been changed to retain
+	// FIXME: use watch
+	for {
+		time.Sleep(time.Second)
+		pv, err := pvclient.Get(act.PvcPairs[index].pv.Name, metav1.GetOptions{})
+		if err == nil {
+			if pv.Spec.PersistentVolumeReclaimPolicy == "Retain" {
+				fmt.Printf("[INFO] [%d] PV %s 回收策略已生效为 Retain\n", step, act.PvcPairs[index].pv.Name)
+				break
+			}
+		}
+	}
+
 	fmt.Printf("[INFO] [%d] 删除PVC %s\n", step, pvp.pvc.Name)
 	var c int64 = 0
 	return pvcclient.Delete(pvp.pvc.Name, &metav1.DeleteOptions{GracePeriodSeconds: &c})
@@ -291,7 +310,7 @@ func (act *ActionConfig) syncdata(index, step int, created bool) error {
 
 	// 1. check if target exits
 	if utils.Exits(_path) {
-		fmt.Println("[ERROR] 路径", _path, "已存在")
+		fmt.Printf("[ERROR] [%d] 路径 %s 已存在\n", step, _path)
 		if !m.Config.ForceWrite {
 			if !m.Config.AutoCreate {
 				return ErrCancel
@@ -299,32 +318,32 @@ func (act *ActionConfig) syncdata(index, step int, created bool) error {
 				// generate a new path
 				_sourcepath = _path + "/*"
 				_targetpath = _path + "-moved-" + pvp.pv.ObjectMeta.ResourceVersion
-				fmt.Println("[INFO] 自动生成新路径", _targetpath)
+				fmt.Printf("[INFO] [%d] 自动生成新路径 %s\n", step, _targetpath)
 			}
 		} else {
-			fmt.Println("[WARN] 即将强制覆写路径", _path)
+			fmt.Printf("[WARN] [%d] 即将强制覆写路径 %s\n", step, _path)
 		}
 	}
 
 	// 2. create parent directory of target pv
 	if !utils.Exits(_parent) {
-		fmt.Println("上一级目录", _parent, "不存在")
+		fmt.Printf("[INFO] [%d] 上一级目录 %s 不存在\n", step, _parent)
 		if !m.Config.AutoCreate {
 			return ErrCancel
 		}
-		fmt.Println("[WARN] 自动创建父级路径", _parent)
+		fmt.Printf("[WARN] [%d] 自动创建父级路径 %s\n", step, _parent)
 		err = sh.Run("mkdir -r " + _parent)
 		if err != nil {
-			fmt.Println("[ERROR] 创建目录", _parent, "失败:", err)
+			fmt.Printf("[ERROR] [%d] 创建目录 %s 失败: %s\n", step, _parent, err)
 		}
 	}
 	if _sourcepath[len(_sourcepath)-1] == '*' {
 		// special directory we need to make sure target exits
 		if !utils.Exits(_targetpath) {
-			fmt.Println("[WARN] 目标目录", _targetpath, "不存在, 自动创建")
+			fmt.Printf("[WARN] [%d] 目标目录 %s 不存在, 自动创建\n", step, _targetpath)
 			err = sh.Run("mkdir " + _targetpath)
 			if err != nil {
-				fmt.Println("[ERROR] 创建目录", _targetpath, "失败:", err)
+				fmt.Printf("[ERROR] [%d] 创建目录 %s 失败: %s\n", step, _targetpath, err)
 			}
 		}
 	}
