@@ -9,10 +9,12 @@ type Config struct {
 	DryRun      bool   `opts:"help=dry run command no modify"`
 	Yes         bool   `opts:"short=y,help=no need to wait user's typo confirm"`
 	Namespace   string `opts:"short=n,help=namepace to process"`
-	AutoCreate  bool   `opts:"help=auto create direcotry if not exits"`
+	AutoCreate  bool   `opts:"short=a,help=auto create direcotry if not exits"`
 	ForceWrite  bool   `opts:"help=if target exits create a new path"`
-	DaemonRsync bool   `opts:"short=d,help=use rsync daemon to sync data"`
-	RsyncArgs   string `opts:help=args and flags for rsync`
+	DaemonRsync bool   `opts:"help=use rsync daemon to sync data"`
+	RsyncArgs   string `opts:"help=args and flags for rsync"`
+	Directory   string `opts:"short=d,help=target directory of the pv data direcotry store; if empty use orignal path"`
+	Prefix      string `opts:"help=prefix of pv directory and name"`
 }
 
 // NewConfig returns a new config
@@ -21,5 +23,6 @@ func NewConfig() *Config {
 		// add default value
 		Namespace: "default",
 		RsyncArgs: "-az",
+		Prefix:    "pvsynced",
 	}
 }

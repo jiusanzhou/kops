@@ -3,8 +3,11 @@ module go.zoe.im/kops
 go 1.12
 
 require (
+	github.com/fatih/color v1.7.0
 	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/imdario/mergo v0.3.8 // indirect
+	github.com/mattn/go-colorable v0.1.4 // indirect
+	github.com/mattn/go-isatty v0.0.10 // indirect
 	github.com/pkg/errors v0.8.1
 	go.zoe.im/x v0.0.9
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect

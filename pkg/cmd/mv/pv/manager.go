@@ -8,6 +8,7 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"go.zoe.im/kops/pkg/utils"
+	"github.com/fatih/color"
 )
 
 var (
@@ -70,11 +71,11 @@ func (m *Manager) Start(keys ...string) {
 
 	// if keys is empty, we are trying to list all pv(local) information
 	if len(keys) == 0 && m.Config.Source == "" && m.Config.Target == "" {
-		fmt.Println("[INFO] 列出所有PV")
+		fmt.Println("列出所有PV")
 		// list all pv
 		pvs, err := listPV(IsLocalPV())
 		if err != nil {
-			fmt.Println("[ERROR] 列出PV错误:", err)
+			fmt.Println("列出PV错误:", err)
 			return
 		}
 
@@ -97,16 +98,16 @@ func (m *Manager) Start(keys ...string) {
 		// list all pods with filter
 		pods, err := listPods(PodNameLike(keys...), WithPV(), PodOnHost(source))
 		if err != nil {
-			fmt.Println("[ERROR] 列出Pod错误:", err)
+			fmt.Println("列出Pod错误:", err)
 			return
 		}
 
-		fmt.Println("[INFO] 移动节点", source, "上", len(pods), "个符合名称", keys, "的Pod，至当前节点")
+		fmt.Println("移动节点", source, "上", len(pods), "个符合名称", keys, "的Pod，至当前节点")
 
 	pod_loop:
 		for _, pod := range pods {
 			// display more informations, just print
-			fmt.Println("\n[INFO] 将Pod", pod.Name, "移动至当前节点")
+			fmt.Println("\n将Pod", pod.Name, "移动至当前节点")
 
 			// create action job to exectud
 
@@ -121,14 +122,14 @@ func (m *Manager) Start(keys ...string) {
 				// check if is the local pv
 				pvc, err := getPVC(v.PersistentVolumeClaim.ClaimName)
 				if err != nil {
-					fmt.Println("[ERROR] 操作终止，因为在获取PVC", v.PersistentVolumeClaim.ClaimName, "时出现错误:", err)
+					fmt.Println("操作终止，因为在获取PVC", v.PersistentVolumeClaim.ClaimName, "时出现错误:", err)
 					continue pod_loop
 				}
 
 				// get pv
 				pv, err := getPV(pvc.Spec.VolumeName)
 				if err != nil {
-					fmt.Println("[ERROR] 操作终止，因为在获取PV", pvc.Spec.VolumeName, "时出现错误:", err)
+					fmt.Println("操作终止，因为在获取PV", pvc.Spec.VolumeName, "时出现错误:", err)
 					continue pod_loop
 				}
 
@@ -141,7 +142,7 @@ func (m *Manager) Start(keys ...string) {
 			// get current node
 			current, err := getNode(m.hostname)
 			if err != nil {
-				fmt.Println("[ERROR] 获取当前节点信息出错:", err)
+				fmt.Println("获取当前节点信息出错:", err)
 				return
 			}
 
@@ -149,12 +150,12 @@ func (m *Manager) Start(keys ...string) {
 			// split with :
 			sources, err := listNode(IsHost(source))
 			if err != nil {
-				fmt.Println("[ERROR] 获取目标节点", source, "信息出错:", err)
+				fmt.Println("获取目标节点", source, "信息出错:", err)
 				return
 			}
 
 			if len(sources) != 1 {
-				fmt.Println("[ERROR] 目标节点", source, "需要有唯一1个,", "但是发现", len(sources), "个")
+				fmt.Println("目标节点", source, "需要有唯一1个,", "但是发现", len(sources), "个")
 				return
 			}
 
@@ -175,25 +176,27 @@ func (m *Manager) Start(keys ...string) {
 			}
 
 			if !m.Config.Yes {
-				r := utils.Ask("🚀   即将执行的操作很危险，是否继续?(N/y)")
+				r := utils.Ask("🚀 即将执行的操作很危险，是否继续?(N/y)")
 				if r != "y\n" {
 					return
 				}
 			}
 
 			err = action.Run()
+			fmt.Printf("%s 迁移 ", pod.Name)
 			if err == ErrCancel {
-				fmt.Println("[WARN]", pod.Name, "迁移被取消")
+				color.Yellow("取消")
 				continue
 			}
 			if err != nil {
-				fmt.Println("[ERROR]", pod.Name, "迁移失败:", err)
+				color.Red("失败")
+				fmt.Println("[ERROR]", err)
 				return
 			}
-			fmt.Println("[INFO]", pod.Name, "迁移成功")
+			color.Green("成功")
 		}
 
-		fmt.Println("\n[INFO] 全部任务执行结束")
+		color.Green("\n全部任务执行结束")
 		return
 	}
 
@@ -208,5 +211,5 @@ func (m *Manager) Start(keys ...string) {
 	// 	fmt.Println(i.Name)
 	// }
 
-	fmt.Println("[ERROR] 参数不明确")
+	color.Yellow("参数不明确")
 }

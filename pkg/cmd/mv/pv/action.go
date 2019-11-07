@@ -2,9 +2,11 @@ package pv
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/fatih/color"
 
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,11 +20,19 @@ import (
 var (
 	ErrCancel      = errors.New("cancel")
 	PatchPVRecycle = []byte(`{"spec": {"persistentVolumeReclaimPolicy": "Retain"}}`)
-	PVNameSuffix   = "-pvsynced"
+	PVNameSuffix   = "pvsynced" // special
 )
 
-func suffixPVName() string {
-	return fmt.Sprintf("%s-%d", PVNameSuffix, time.Now().Unix())
+func withSuffixPVName(name string) string {
+	var splits = strings.Split(name, "-")
+	var l = len(splits)
+	if l >= 3 && splits[l-2] == PVNameSuffix {
+		// maybe this pv is a synced one, just replace the timestamp
+		splits[l-1] = fmt.Sprintf("%d", time.Now().Unix())
+		return strings.Join(splits, "-")
+	} else {
+		return fmt.Sprintf("%s-%s-%d", name, PVNameSuffix, time.Now().Unix())
+	}
 }
 
 type PVCPair struct {
@@ -49,6 +59,8 @@ type ActionConfig struct {
 // Run start to process
 func (act *ActionConfig) Run() error {
 	var err error
+
+	PVNameSuffix = act.m.Config.Prefix
 
 	for index := range act.PvcPairs {
 
@@ -85,9 +97,6 @@ func (act *ActionConfig) Run() error {
 			return err
 		}
 
-		// waiting for pvc deleted
-		act.waitingpvcdeleted(index)
-
 		// 5. rename(or delete) pv (and data).
 		err = act.renamepv(index, 5)
 		if err != nil {
@@ -123,20 +132,21 @@ func (act *ActionConfig) waitpodready(index, step int) error {
 
 	// actually pvc status is BOUND
 	// pvcclient.
-	fmt.Printf("[INFO] [%d] 重启Pod %s\n", step, act.Pod.Name)
+	fmt.Printf("[%d] 重启Pod %s ", step, act.Pod.Name)
 
 	_ = podclient.Delete(act.Pod.Name, nil)
 	// if err != nil {
-	// 	fmt.Println("[ERROR] [7] 重启Pod", act.Pod.Name, "失败:", err)
+	// 	fmt.Println("[7] 重启Pod", act.Pod.Name, "失败:", err)
 	// 	return err
 	// }
+	color.Green("成功")
 	return nil
 }
 
 func (act *ActionConfig) restorepvc(index, step int) error {
 	var opvc = act.PvcPairs[index].pvc
 	var pv = act.PvcPairs[index].pv
-	fmt.Printf("[INFO] [%d] 恢复创建PVC %s\n", step, opvc.Name)
+	fmt.Printf("[%d] 恢复创建PVC %s ", step, opvc.Name)
 	var npvc = v1.PersistentVolumeClaim{
 		TypeMeta: opvc.TypeMeta,
 		ObjectMeta: metav1.ObjectMeta{
@@ -159,10 +169,11 @@ func (act *ActionConfig) restorepvc(index, step int) error {
 	}
 	_, err := pvcclient.Create(&npvc)
 	if err != nil {
-		fmt.Printf("[INFO] [%c] 恢复创建PVC %s 失败: %s\n", step, npvc.Name, err)
+		color.Red("失败")
+		fmt.Printf("    error: %s\n", err)
 		return err
 	}
-	fmt.Printf("[INFO] [%d] 恢复创建PVC %s 成功\n", step, npvc.Name)
+	color.Green("成功")
 	return nil
 }
 
@@ -170,12 +181,12 @@ func (act *ActionConfig) createpv(index, step int) error {
 	// 1. rename from the old one
 	// 2. change the node affinity to the new node
 	// 3. change the data path if need
-	fmt.Printf("[INFO] [%d] 在新节点上创建PV\n", step)
+	fmt.Printf("[%d] 在新节点上创建PV ", step)
 	var opv = act.PvcPairs[index].pv
 	var npv = v1.PersistentVolume{
 		TypeMeta: opv.TypeMeta,
 		ObjectMeta: metav1.ObjectMeta{
-			Name:          opv.ObjectMeta.Name + suffixPVName(),
+			Name:          withSuffixPVName(opv.ObjectMeta.Name),
 			Namespace:     opv.ObjectMeta.Namespace,
 			Labels:        opv.ObjectMeta.Labels,
 			Annotations:   opv.ObjectMeta.Annotations,
@@ -213,34 +224,49 @@ func (act *ActionConfig) createpv(index, step int) error {
 
 	_, err := pvclient.Create(&npv)
 	if err != nil {
-		fmt.Printf("[ERROR] [%d] 创建PV %s 失败: %s\n", step, npv.Name, err)
+		color.Red("失败")
+		fmt.Printf("    error: %s\n", err)
 		return err
 	}
-	fmt.Printf("[INFO] [%d] 创建PV %s 成功\n", step, npv.Name)
+	color.Green("成功")
 	return nil
 }
 
 func (act *ActionConfig) renamepv(index, step int) error {
 	// TODO:
-	fmt.Printf("[WARN] [%d] 保留原始PV\n", step)
+	fmt.Printf("[%d] 重命名原PV ", step)
+	color.Yellow("跳过")
 	return nil
 }
 
 func (act *ActionConfig) deletepod(index, step int) error {
 	// **make sure pvc status to terminating!important
-	fmt.Printf("[INFO] [%d] 删除Pod %s\n", step, act.Pod.Name)
-	return podclient.Delete(act.Pod.Name, nil)
+	fmt.Printf("[%d] 删除Pod %s ", step, act.Pod.Name)
+	err := podclient.Delete(act.Pod.Name, nil)
+	if err != nil {
+		color.Red("失败")
+		return err
+	}
+	color.Green("成功")
+
+	fmt.Printf("    等待PVC被删除 ")
+	act.waitingpvcdeleted(index)
+	color.Green(" 完成")
+	return nil
 }
 
 func (act *ActionConfig) waitingpvcdeleted(index int) {
-	fmt.Printf("等待")
 	// FIXME: use watch
+	var c = 20
 	for {
 		fmt.Printf(".")
 		time.Sleep(time.Second)
 		_, err := pvcclient.Get(act.PvcPairs[index].pvc.Name, metav1.GetOptions{})
 		if err != nil {
-			fmt.Println()
+			return
+		}
+		c -= 1
+		if c == 0 {
 			return
 		}
 	}
@@ -249,12 +275,14 @@ func (act *ActionConfig) waitingpvcdeleted(index int) {
 func (act *ActionConfig) deletepvc(index, step int) error {
 	// modify recycle of pv?
 	// **make sure data has been synced!important. rdiff?
+	fmt.Printf("[%d] 删除PVC\n", step)
 
 	var pvp = act.PvcPairs[index]
 	_, err := pvclient.Patch(pvp.pv.Name, types.MergePatchType, PatchPVRecycle)
-	fmt.Printf("[INFO] [%d] 调整PV %s %s\n", step, pvp.pv.Name, "的回收策略为 Retain")
+	fmt.Printf("    调整PV %s 的回收策略为 Retain ", pvp.pv.Name)
 	if err != nil {
-		fmt.Printf("[ERROR] [%d] 调整PV回收策略失败: %s\n", step, err)
+		color.Red("失败")
+		fmt.Printf("    error: %s\n", err)
 		return err
 	}
 
@@ -265,15 +293,23 @@ func (act *ActionConfig) deletepvc(index, step int) error {
 		pv, err := pvclient.Get(act.PvcPairs[index].pv.Name, metav1.GetOptions{})
 		if err == nil {
 			if pv.Spec.PersistentVolumeReclaimPolicy == "Retain" {
-				fmt.Printf("[INFO] [%d] PV %s 回收策略已生效为 Retain\n", step, act.PvcPairs[index].pv.Name)
+				color.Green("成功")
 				break
 			}
 		}
 	}
 
-	fmt.Printf("[INFO] [%d] 删除PVC %s\n", step, pvp.pvc.Name)
+	fmt.Printf("    删除PVC %s ", pvp.pvc.Name)
 	var c int64 = 0
-	return pvcclient.Delete(pvp.pvc.Name, &metav1.DeleteOptions{GracePeriodSeconds: &c})
+	err = pvcclient.Delete(pvp.pvc.Name, &metav1.DeleteOptions{GracePeriodSeconds: &c})
+	if err != nil {
+		color.Red("失败")
+		return err
+	}
+
+	color.Green("成功")
+
+	return nil
 }
 
 func (act *ActionConfig) syncdata(index, step int, created bool) error {
@@ -294,57 +330,72 @@ func (act *ActionConfig) syncdata(index, step int, created bool) error {
 	)
 
 	if !created {
-		fmt.Printf("[INFO] [%d] 再次同步数据\n", step)
+		fmt.Printf("[%d] 再次同步第 %d 个PV数据\n", step, index+1)
 		goto runsync
 	} else {
-		fmt.Printf("[INFO] [%d] 同步数据\n", step)
+		fmt.Printf("[%d] 同步第 %d 个PV数据\n", step, index+1)
 	}
-
-	fmt.Printf("[INFO] [%d] 同步第 %d 个PV数据\n", step, index+1)
 
 	_path = pvp.pv.Spec.Local.Path
 	_parent = utils.ParentPath(_path)
 
+	if act.m.Config.Directory != "" {
+		_parent = act.m.Config.Directory
+	}
+
 	_sourcepath = _path
 	_targetpath = _parent
 
-	// 1. check if target exits
-	if utils.Exits(_path) {
-		fmt.Printf("[ERROR] [%d] 路径 %s 已存在\n", step, _path)
-		if !m.Config.ForceWrite {
-			if !m.Config.AutoCreate {
-				return ErrCancel
-			} else {
-				// generate a new path
-				_sourcepath = _path + "/*"
-				_targetpath = _path + "-moved-" + pvp.pv.ObjectMeta.ResourceVersion
-				fmt.Printf("[INFO] [%d] 自动生成新路径 %s\n", step, _targetpath)
-			}
-		} else {
-			fmt.Printf("[WARN] [%d] 即将强制覆写路径 %s\n", step, _path)
-		}
-	}
+	// always use a new path name
+	_sourcepath = _path + "/*"
+	_targetpath = _parent + "/" + PVNameSuffix +"-" + pvp.pv.ObjectMeta.ResourceVersion
+
+
+	// // 1. check if target exits
+	// if utils.Exits(_path) {
+	// 	fmt.Printf("[%d] 路径 %s 已存在\n", step, _path)
+	// 	if !m.Config.ForceWrite {
+	// 		if !m.Config.AutoCreate {
+	// 			return ErrCancel
+	// 		} else {
+	// 			// generate a new path
+	// 			_sourcepath = _path + "/*"
+	// 			_targetpath = _path + "-moved-" + pvp.pv.ObjectMeta.ResourceVersion
+	// 			fmt.Printf("[%d] 自动生成新路径 %s\n", step, _targetpath)
+	// 		}
+	// 	} else {
+	// 		fmt.Printf("[%d] 即将强制覆写路径 %s\n", step, _path)
+	// 	}
+	// }
 
 	// 2. create parent directory of target pv
 	if !utils.Exits(_parent) {
-		fmt.Printf("[INFO] [%d] 上一级目录 %s 不存在\n", step, _parent)
+		fmt.Printf("    上一级目录 %s 不存在 ", step, _parent)
 		if !m.Config.AutoCreate {
+			color.Red("失败")
 			return ErrCancel
 		}
-		fmt.Printf("[WARN] [%d] 自动创建父级路径 %s\n", step, _parent)
-		err = sh.Run("mkdir -r " + _parent)
+		fmt.Printf("    自动创建父级路径 %s ", step, _parent)
+		err = sh.Run("mkdir -p " + _parent)
 		if err != nil {
-			fmt.Printf("[ERROR] [%d] 创建目录 %s 失败: %s\n", step, _parent, err)
+			color.Red("失败")
+			fmt.Printf("    error: %s\n", err)
+			return err
 		}
+		color.Green("成功")
 	}
+
 	if _sourcepath[len(_sourcepath)-1] == '*' {
 		// special directory we need to make sure target exits
 		if !utils.Exits(_targetpath) {
-			fmt.Printf("[WARN] [%d] 目标目录 %s 不存在, 自动创建\n", step, _targetpath)
+			fmt.Printf("    目标目录 %s 不存在, 自动创建 ", _targetpath)
 			err = sh.Run("mkdir " + _targetpath)
 			if err != nil {
-				fmt.Printf("[ERROR] [%d] 创建目录 %s 失败: %s\n", step, _targetpath, err)
+				color.Red("失败")
+				fmt.Printf("    error: %s\n", err)
+				return err
 			}
+			color.Green("成功")
 		}
 	}
 
@@ -362,60 +413,82 @@ func (act *ActionConfig) syncdata(index, step int, created bool) error {
 	pvp.rsynccmd = genRsyncCmd(m.Config.DaemonRsync, data)
 
 	if m.Config.DryRun {
-		fmt.Println("[DEBUG] 运行命令", pvp.rsynccmd)
+		fmt.Println("    运行命令", pvp.rsynccmd)
 		return nil
 	}
 
 runsync:
+	fmt.Printf("    ")
 	err = sh.Run(pvp.rsynccmd)
+	fmt.Printf("    启动rsync同步数据 ")
 	if err != nil {
+		color.Red("失败")
 		return err
 	}
+	color.Green("成功")
 
 	return nil
 }
 
 func (act *ActionConfig) check(index, step int) error {
-	fmt.Printf("[INFO] [%d] 检测资源状态\n", step)
+	fmt.Printf("[%d] 进行资源安全检查\n", step)
 
 	var err error
 
 	// check target node
+	fmt.Printf("    检查目标节点 ")
 	err = nodeCheck(act.TargetNode)
 	if err != nil {
+		color.Red("失败")
 		return errors.Wrap(err, "target node: ")
 	}
+	color.Green("正常")
 
 	// check source node
+	fmt.Printf("    检查源节点 ")
 	err = nodeCheck(act.SourceNode)
 	if err != nil {
+		color.Red("失败")
 		return errors.Wrap(err, "source node")
 	}
+	color.Green("正常")
 
 	// check if target and source are same one
+	fmt.Printf("    检查是否为同一个节点  ")
 	if act.TargetNode.ObjectMeta.Name == act.SourceNode.ObjectMeta.Name {
+		color.Red("失败")
 		return fmt.Errorf("source and distination are same node")
 	}
+	color.Green("正常")
 
 	var pvcp = act.PvcPairs[index]
 
 	// check pv
 	var pvs = pvcp.pv.Status.Phase
+	fmt.Printf("    检查PV状态是否为有效绑定 ")
 	if pvs != v1.VolumeBound {
+		color.Red("失败")
 		return fmt.Errorf("we except pv %s status be Bound, but we got %s", pvcp.pv.ObjectMeta.Name, pvs)
 	}
+	color.Green("正常")
 
 	// check pvc
 	var pvcs = pvcp.pvc.Status.Phase
+	fmt.Printf("    检查PVC状态是否为有效绑定 ")
 	if pvcs != v1.ClaimBound {
+		color.Red("失败")
 		return fmt.Errorf("we expect pvc %s status be Bound, but we got %s", pvcp.pvc.ObjectMeta.Name, pvs)
 	}
+	color.Green("正常")
 
 	// check pod
 	var ps = act.Pod.Status.Phase
+	fmt.Printf("    检查Pod状态是否正常 ")
 	if ps != v1.PodRunning && ps != v1.PodSucceeded {
+		color.Red("失败")
 		return fmt.Errorf("we expect node %s status be Running or Succeeded, bu we got %s", act.Pod.ObjectMeta.Name, ps)
 	}
+	color.Green("正常")
 
 	// everything can be ok
 
