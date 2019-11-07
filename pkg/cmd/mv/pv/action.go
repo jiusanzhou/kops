@@ -39,6 +39,7 @@ type PVCPair struct {
 	pv       v1.PersistentVolume
 	pvc      v1.PersistentVolumeClaim
 	rsynccmd string
+	_targetpath string
 }
 
 // ActionConfig presents how to transport a pv from a node to another
@@ -196,8 +197,12 @@ func (act *ActionConfig) createpv(index, step int) error {
 		Spec: v1.PersistentVolumeSpec{
 			AccessModes:                   opv.Spec.AccessModes,
 			Capacity:                      opv.Spec.Capacity,
-			PersistentVolumeSource:        opv.Spec.PersistentVolumeSource,
-			PersistentVolumeReclaimPolicy: opv.Spec.PersistentVolumeReclaimPolicy,
+			PersistentVolumeSource:        v1.PersistentVolumeSource{
+				Local: &v1.LocalVolumeSource{
+					Path: act.PvcPairs[index]._targetpath,
+				},
+			},
+			PersistentVolumeReclaimPolicy: "Retain",
 			StorageClassName:              opv.Spec.StorageClassName,
 			MountOptions:                  opv.Spec.MountOptions,
 			VolumeMode:                    opv.Spec.VolumeMode,
@@ -416,6 +421,9 @@ func (act *ActionConfig) syncdata(index, step int, created bool) error {
 		fmt.Println("    运行命令", pvp.rsynccmd)
 		return nil
 	}
+
+	// 4. set _targetpath to pv
+	pvp._targetpath = _targetpath
 
 runsync:
 	fmt.Printf("    ")
