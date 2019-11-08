@@ -171,7 +171,12 @@ func (m *Manager) Start(keys ...string) {
 		return
 	}
 
-	fmt.Println("移动节点", source, "上", len(pods), "个符合名称", keys, "的Pod，至当前节点")
+	fmt.Printf("移动节点 %s 上 %d 个符合名称 %s 的Pod至当前节点 ", source, len(pods), keys)
+	if m.Config.OnlySync {
+		color.Yellow("[仅同步数据模式]")
+	} else {
+		fmt.Println()
+	}
 
 pod_loop:
 	for _, pod := range pods {
@@ -246,7 +251,7 @@ pod_loop:
 			m:          m,
 		}
 
-		if !m.Config.Yes {
+		if !m.Config.Yes && !m.Config.OnlySync {
 			r := utils.Ask("🚀 即将执行的操作很危险，是否继续?(N/y)")
 			if r != "y\n" {
 				return

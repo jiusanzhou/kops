@@ -87,6 +87,12 @@ func HandlerSync(act *ActionConfig) error {
 			item.FirstSynced = true
 		}
 	}
+
+	if act.m.Config.OnlySync {
+		// exits
+		color.Yellow("仅同步数据,将不会进行后续操作")
+		return ErrCancel
+	}
 	
 	return nil
 	// if !created {

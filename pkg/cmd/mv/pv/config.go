@@ -18,6 +18,7 @@ type Config struct {
 	Wait        int    `opts:"short=w,help=timeout for waitting pvc deleted; 0 for disable; seconds"`
 	LogFile     string `opts:"short=f,help=last run exitting log; try to revcovery"`
 	Step        int    `opts:"help=set current step"`
+	OnlySync    bool   `opts:"help=just snyc data"`
 }
 
 // NewConfig returns a new config
