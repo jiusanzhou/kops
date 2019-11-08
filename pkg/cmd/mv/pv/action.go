@@ -110,18 +110,19 @@ func (act *ActionConfig) Run() error {
 		if err != nil {
 			return err
 		}
+	}
 
-		// 7. restore the pvc (actually reuse the name and pv refrence of pv).
-		err = act.restorepvc(index, 7)
-		if err != nil {
-			return err
-		}
+	// 7. restore the pvc (actually reuse the name and pv refrence of pv).
+	//    delay restore the pvc
+	err = act.restorepvc(0, 7)
+	if err != nil {
+		return err
+	}
 
-		// 8. waiting for pod scheduled.
-		err = act.waitpodready(index, 8)
-		if err != nil {
-			return err
-		}
+	// 8. waiting for pod scheduled.
+	err = act.waitpodready(0, 8)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -145,36 +146,39 @@ func (act *ActionConfig) waitpodready(index, step int) error {
 }
 
 func (act *ActionConfig) restorepvc(index, step int) error {
-	var opvc = act.PvcPairs[index].pvc
-	var pv = act.PvcPairs[index].pv
-	fmt.Printf("[%d] 恢复创建PVC %s ", step, opvc.Name)
-	var npvc = v1.PersistentVolumeClaim{
-		TypeMeta: opvc.TypeMeta,
-		ObjectMeta: metav1.ObjectMeta{
-			Name:          opvc.ObjectMeta.Name,
-			Namespace:     opvc.ObjectMeta.Namespace,
-			Labels:        opvc.ObjectMeta.Labels,
-			Annotations:   opvc.ObjectMeta.Annotations,
-			ClusterName:   opvc.ObjectMeta.ClusterName,
-			ManagedFields: opvc.ObjectMeta.ManagedFields,
-		},
-		Spec: v1.PersistentVolumeClaimSpec{
-			AccessModes:      opvc.Spec.AccessModes,
-			Selector:         opvc.Spec.Selector,
-			Resources:        opvc.Spec.Resources,
-			VolumeName:       pv.Name, // important
-			StorageClassName: opvc.Spec.StorageClassName,
-			VolumeMode:       opvc.Spec.VolumeMode,
-			DataSource:       opvc.Spec.DataSource,
-		},
+
+	for index := range act.PvcPairs {
+		var opvc = act.PvcPairs[index].pvc
+		var pv = act.PvcPairs[index].pv
+		fmt.Printf("[%d] 恢复创建PVC %s ", step, opvc.Name)
+		var npvc = v1.PersistentVolumeClaim{
+			TypeMeta: opvc.TypeMeta,
+			ObjectMeta: metav1.ObjectMeta{
+				Name:          opvc.ObjectMeta.Name,
+				Namespace:     opvc.ObjectMeta.Namespace,
+				Labels:        opvc.ObjectMeta.Labels,
+				Annotations:   opvc.ObjectMeta.Annotations,
+				ClusterName:   opvc.ObjectMeta.ClusterName,
+				ManagedFields: opvc.ObjectMeta.ManagedFields,
+			},
+			Spec: v1.PersistentVolumeClaimSpec{
+				AccessModes:      opvc.Spec.AccessModes,
+				Selector:         opvc.Spec.Selector,
+				Resources:        opvc.Spec.Resources,
+				VolumeName:       pv.Name, // important
+				StorageClassName: opvc.Spec.StorageClassName,
+				VolumeMode:       opvc.Spec.VolumeMode,
+				DataSource:       opvc.Spec.DataSource,
+			},
+		}
+		_, err := pvcclient.Create(&npvc)
+		if err != nil {
+			color.Red("失败")
+			fmt.Printf("    error: %s\n", err)
+			return err
+		}
+		color.Green("成功")
 	}
-	_, err := pvcclient.Create(&npvc)
-	if err != nil {
-		color.Red("失败")
-		fmt.Printf("    error: %s\n", err)
-		return err
-	}
-	color.Green("成功")
 	return nil
 }
 
@@ -262,7 +266,7 @@ func (act *ActionConfig) deletepod(index, step int) error {
 
 func (act *ActionConfig) waitingpvcdeleted(index int) {
 	// FIXME: use watch
-	var c = 20
+	var c = 0
 	for {
 		fmt.Printf(".")
 		time.Sleep(time.Second)
@@ -270,8 +274,9 @@ func (act *ActionConfig) waitingpvcdeleted(index int) {
 		if err != nil {
 			return
 		}
-		c -= 1
-		if c == 0 {
+		c += 1
+		if act.m.Config.Wait > 0 && c == act.m.Config.Wait {
+			color.Yellow("超时，可能删除失败")
 			return
 		}
 	}
@@ -332,6 +337,8 @@ func (act *ActionConfig) syncdata(index, step int, created bool) error {
 
 		m   = act.m
 		pvp = act.PvcPairs[index]
+
+		_count = 0
 	)
 
 	if !created {
@@ -375,12 +382,12 @@ func (act *ActionConfig) syncdata(index, step int, created bool) error {
 
 	// 2. create parent directory of target pv
 	if !utils.Exits(_parent) {
-		fmt.Printf("    上一级目录 %s 不存在 ", step, _parent)
+		fmt.Printf("    上一级目录 %s 不存在 ", _parent)
 		if !m.Config.AutoCreate {
 			color.Red("失败")
 			return ErrCancel
 		}
-		fmt.Printf("    自动创建父级路径 %s ", step, _parent)
+		fmt.Printf("    自动创建父级路径 %s ", _parent)
 		err = sh.Run("mkdir -p " + _parent)
 		if err != nil {
 			color.Red("失败")
@@ -431,6 +438,10 @@ runsync:
 	fmt.Printf("    启动rsync同步数据 ")
 	if err != nil {
 		color.Red("失败")
+		if _count < 2 {
+			color.Yellow("    再试一次")
+			goto runsync
+		}
 		return err
 	}
 	color.Green("成功")

@@ -15,6 +15,7 @@ type Config struct {
 	RsyncArgs   string `opts:"help=args and flags for rsync"`
 	Directory   string `opts:"short=d,help=target directory of the pv data direcotry store; if empty use orignal path"`
 	Prefix      string `opts:"help=prefix of pv directory and name"`
+	Wait        int    `opts:"short=w,help=timeout for waitting pvc deleted; 0 for disable; seconds"`
 }
 
 // NewConfig returns a new config
@@ -24,5 +25,6 @@ func NewConfig() *Config {
 		Namespace: "default",
 		RsyncArgs: "-az",
 		Prefix:    "pvsynced",
+		Wait:      0,
 	}
 }
