@@ -23,7 +23,7 @@ type PVItem struct {
 	PvCreated bool
 	PvcCreated bool
 
-	rsynccmd string
+	Rsynccmd string
 }
 
 // ActionConfig presents how to transport a pv from a node to another

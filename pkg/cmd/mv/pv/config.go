@@ -16,6 +16,8 @@ type Config struct {
 	Directory   string `opts:"short=d,help=target directory of the pv data direcotry store; if empty use orignal path"`
 	Prefix      string `opts:"help=prefix of pv directory and name"`
 	Wait        int    `opts:"short=w,help=timeout for waitting pvc deleted; 0 for disable; seconds"`
+	LogFile     string `opts:"short=f,help=last run exitting log; try to revcovery"`
+	Step        int    `opts:"help=set current step"`
 }
 
 // NewConfig returns a new config

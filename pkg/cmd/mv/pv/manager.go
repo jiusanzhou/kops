@@ -87,6 +87,29 @@ func (m *Manager) dumps(act *ActionConfig) {
 	color.Yellow("[DUMPS] 保留线程在文件: %s", log)
 }
 
+func (m *Manager) recover() error {
+	f, err := os.Open(m.Config.LogFile)
+	fmt.Sprintf("恢复运行 %s \n", m.Config.LogFile)
+	if err != nil {
+		color.Red("[RECOVER] 打开文件错误: %s", err)
+		return err
+	}
+	var dec = json.NewDecoder(f)
+	var act  = &ActionConfig{}
+	err = dec.Decode(act)
+	if err != nil {
+		color.Red("[RECOVER] 反序列化数据失败: %s", err)
+		return err
+	}
+	if m.Config.Step > 0 {
+		act.CurrentStep = m.Config.Step
+		color.Yellow("手动设置至第 %d 步", act.CurrentStep)
+	}
+	act.m = m
+	// strart to run
+	return act.Run()
+}
+
 // FIXME: make this more beautify
 func (m *Manager) precheck() error {
 	return nil
@@ -104,6 +127,18 @@ func (m *Manager) Start(keys ...string) {
 
 	// init
 	m.init()
+
+	// recovery from file
+	if m.Config.LogFile != "" {
+		err := m.recover()
+		fmt.Sprintf("从该日志 %s 中恢复运行", m.Config.LogFile)
+		if err != nil {
+			color.Red("运行失败: %s", err)
+			return
+		}
+		color.Green("运行成功")
+		return
+	}
 
 	if len(keys) == 0 {
 		color.Red("需提供至少一个Pod以用于迁移")

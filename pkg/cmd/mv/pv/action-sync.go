@@ -54,25 +54,26 @@ func HandlerSync(act *ActionConfig) error {
 				color.Green("成功")
 			}
 
-			data = map[string]string{
-				"args":        act.m.Config.RsyncArgs,
-				"source_host": act.SrcHost,
-				"source_path": item.SourcePath,
-				"target_path": item.TargetPath,
-			}
-
-			if len(act.m.Config.Username) > 0 {
-				data["username"] = act.m.Config.Username
-			}
-		
-			item.rsynccmd = genRsyncCmd(act.m.Config.DaemonRsync, data)
 		} else {
 			fmt.Printf("    再同步第 %d 个PV的数据\n", idx)
 		}
 
+		data = map[string]string{
+			"args":        act.m.Config.RsyncArgs,
+			"source_host": act.SrcHost,
+			"source_path": item.SourcePath,
+			"target_path": item.TargetPath,
+		}
+
+		if len(act.m.Config.Username) > 0 {
+			data["username"] = act.m.Config.Username
+		}
+	
+		item.Rsynccmd = genRsyncCmd(act.m.Config.DaemonRsync, data)
+		
 		// sync data run commandrunsync:
 		fmt.Printf("    ")
-		err = sh.Run(item.rsynccmd)
+		err = sh.Run(item.Rsynccmd)
 		fmt.Printf("    启动rsync同步数据 ")
 		if err != nil {
 			color.Red("失败")
