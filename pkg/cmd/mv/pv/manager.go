@@ -26,12 +26,25 @@ type Manager struct {
 	Config *Config
 
 	hostname string
+
+	fns []ActionHandler
 }
 
 // NewManager create a new manager
 func NewManager() *Manager {
 	return &Manager{
 		Config: NewConfig(),
+		fns: []ActionHandler{
+			HandlerCheck,
+			HandlerSync,
+			HandlerDeletePvc,
+			HandlerDeletePod,
+			HandlerSync,
+			HandlerDeletePv,
+			HandlerCreatePv,
+			HandlerCreatePvc,
+			HandlerRestartPod,
+		},
 	}
 }
 
@@ -112,7 +125,7 @@ func (m *Manager) Start(keys ...string) {
 			// create action job to exectud
 
 			// find the pvc of pod
-			var pvcps = []*PVCPair{}
+			var pvcps = []*PVItem{}
 			for _, v := range pod.Spec.Volumes {
 				if v.PersistentVolumeClaim == nil {
 					continue
@@ -133,9 +146,9 @@ func (m *Manager) Start(keys ...string) {
 					continue pod_loop
 				}
 
-				pvcps = append(pvcps, &PVCPair{
-					pv:  *pv,
-					pvc: *pvc,
+				pvcps = append(pvcps, &PVItem{
+					OldPv:  pv,
+					OldPvc: pvc,
 				})
 			}
 
@@ -168,10 +181,10 @@ func (m *Manager) Start(keys ...string) {
 
 			action := ActionConfig{
 				Pod:        pod,
-				PvcPairs:   pvcps,
+				Items:   pvcps,
 				SourceNode: sources[0],
 				TargetNode: *current,
-				srcHost:    source,
+				SrcHost:    source,
 				m:          m,
 			}
 
@@ -183,7 +196,7 @@ func (m *Manager) Start(keys ...string) {
 			}
 
 			err = action.Run()
-			fmt.Printf("%s 迁移 ", pod.Name)
+			fmt.Printf("Pod %s 迁移 ", pod.Name)
 			if err == ErrCancel {
 				color.Yellow("取消")
 				continue
