@@ -69,6 +69,7 @@ func (act *ActionConfig) next() error {
 // Run start to process
 func (act *ActionConfig) Run() error {
 	// prepre for configuration
+	// recovery from log
 	return act.next()
 }
 
